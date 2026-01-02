@@ -1,5 +1,5 @@
 from __future__ import annotations
-from dataclasses import dataclasses
+from dataclasses import dataclass, field
 from pathlib import Path
 
 @dataclass
@@ -7,12 +7,13 @@ class DataConfig:
     base_path: Path = Path('/content')
     img_size_h: int = 144
     img_size_w: int = 256
-    split_ratio: float = 0.8
+    train_ratio: float = 0.7
+    test_ratio: float = 0.15
     seed: int = 42
 
 @dataclass
-class TriningConfig:
-    data: DataConfig = DataConfig()
+class TrainConfig:
+    data: DataConfig = field(default_factory=DataConfig)
     batch_size: int = 8
     epochs: int = 50
     lr: float = 1e-3

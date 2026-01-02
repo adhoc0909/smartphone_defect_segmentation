@@ -1,5 +1,5 @@
 from __future__ import annotations
-import outputs
+import os
 import glob
 from dataclasses import dataclass
 from pathlib import Path
@@ -54,41 +54,41 @@ class DefectSegDataset(Dataset):
         split: str, # "train | val | test"
         img_size_hw: Tuple[int, int],
         train_ratio: float = 0.7,
-        test_ratio: float = 0.15
+        test_ratio: float = 0.15,
         seed: int = 42,
     )  -> None:
-    assert split in {"train", "val", "test"}
-    self.base_path = base_path
-    self.img_h, self.img_w = img_size_hw
-    paths = default_paths(base_path)
-    self.img_dirs = paths.img_dirs
-    self.mask_dirs = paths.mask_dirs
+        assert split in {"train", "val", "test"}
+        self.base_path = base_path
+        self.img_h, self.img_w = img_size_hw
+        paths = default_paths(base_path)
+        self.img_dirs = paths.img_dirs
+        self.mask_dirs = paths.mask_dirs
 
-    rng = np.random.default_rng(seed)
+        rng = np.random.default_rng(seed)
 
-    self.samples: List[Tuple[Path, str]] = []
+        self.samples: List[Tuple[Path, str]] = []
 
-    for cls, floder in self.img_dirs.items():
-        imgs = _list_images(folder)
+        for cls, folder in self.img_dirs.items():
+            imgs = _list_images(folder)
 
-        rng.shuffle(imgs)
+            rng.shuffle(imgs)
 
-        n_total = len(imgs)
-        n_train = len(n_total * train_ratio)
-        n_test = int(n_total * test_ratio)
-        
-        train_imgs = imgs[:n_train]
-        test_imgs = imgs[n_train: n_train + n_test]
-        val_imgs = imgs[n_train + n_test:]
+            n_total = len(imgs)
+            n_train = int(n_total * train_ratio)
+            n_test = int(n_total * test_ratio)
+            
+            train_imgs = imgs[:n_train]
+            test_imgs = imgs[n_train: n_train + n_test]
+            val_imgs = imgs[n_train + n_test:]
 
-        if split == 'train':
-            chosen = train_imgs
-        elif split == 'test':
-            chosen = test_imgs
-        else:
-            chosen = val_imgs
+            if split == 'train':
+                chosen = train_imgs
+            elif split == 'test':
+                chosen = test_imgs
+            else:
+                chosen = val_imgs
 
-        self.samples.extend([(p, cls) for p in chosen])
+            self.samples.extend([(p, cls) for p in chosen])
 
     def __len__(self) -> ing:
         return len(self.samples)
@@ -138,8 +138,8 @@ def make_loaders(
 ):
     train_ds = DefectSegDataset(base_path, "train", img_size_hw, train_ratio, seed)
     test_ds = DefectSegDataset(base_path, "test", img_size_hw, test_ratio, seed)
-    val_ds = DefectSegDataset(base_path, "val", img_size_hw, val_ratio, seed)
+    val_ds = DefectSegDataset(base_path, "val", img_size_hw, 1 - train_ratio - test_ratio, seed)
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
     test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
-    return train_loader, val_loader
+    return train_loader, val_loader, test_loader
