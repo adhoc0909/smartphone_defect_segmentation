@@ -1,0 +1,9 @@
+from __future__ import annotations
+import torch.nn as nn
+from .model import *
+
+def build_model(name: str, base_channels: int = 32) -> nn.Module:
+    name = name.lower()
+    if name == "unet":
+        return UNet(base_channels=base_channels)
+    raise ValueError(f"Unknown model name: {name}")
