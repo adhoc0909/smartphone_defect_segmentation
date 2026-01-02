@@ -1,12 +1,20 @@
-from __future__ annotations
+from __future__ import annotations
 import argparse
 from pathlib import Path
+import sys
 
-from segtool.data import  make_loaders
+import torch
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_PATH = PROJECT_ROOT / "src"
+sys.path.append(str(SRC_PATH))
+
+from segtool.config import TrainConfig, DataConfig
+from segtool.data import make_loaders
 from segtool.models_factory import build_model
 from segtool.losses import BCEDiceLoss
-from segtool.utils import set_seed, get_device
-import torch
+from segtool.engine import train_one_epoch, validate
+from segtool.utils import set_seed, get_device, ensure_dir, save_checkpoint
 
 def parse_args():
     p = argparse.ArgumentParser()
@@ -49,7 +57,7 @@ def main():
             img_size_w=args.img_w,
             train_ratio=args.train_ratio,
             test_ratio=args.test_ratio,
-            seed=args.seedm
+            seed=args.seed
         ),
         batch_size=args.batch_size,
         epochs=args.epochs,
@@ -96,13 +104,14 @@ def main():
             },
         )
 
-        train_loader, val_loader = make_loaders(
-        base_path=cfg.data.base_path,
-        img_size_hw=(cfg.data.img_size_h, cfg.data.img_size_w),
-        split_ratio=cfg.data.split_ratio,
-        seed=cfg.data.seed,
-        batch_size=cfg.batch_size,
-        num_workers=cfg.num_workers,
+    train_loader, val_loader, test_loader = make_loaders(
+    base_path=cfg.data.base_path,
+    img_size_hw=(cfg.data.img_size_h, cfg.data.img_size_w),
+    train_ratio=cfg.data.train_ratio,
+    test_ratio=cfg.data.test_ratio,
+    seed=cfg.data.seed,
+    batch_size=cfg.batch_size,
+    num_workers=cfg.num_workers,
     )
 
     model = build_model(cfg.model_name, base_channels=cfg.base_channels).to(device)
