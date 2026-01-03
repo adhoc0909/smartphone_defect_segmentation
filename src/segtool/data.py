@@ -95,7 +95,7 @@ class DefectSegDataset(Dataset):
 
     def _load_rgb(self, path: Path) -> np.ndarray:
         img = (
-            Image.open(path).convert("RGB").resize((self.img_w, self,img_h), Image.BILINEAR)
+            Image.open(path).convert("RGB").resize((self.img_w, self.img_h), Image.BILINEAR)
         )
         return np.asarray(img)
 
@@ -113,17 +113,21 @@ class DefectSegDataset(Dataset):
             .resize((self.img_w, self.img_h), Image.NEAREST)
         )
         m = np.asarray(mask)
+    
         return (m > 0).astype(np.uint8) * 255
 
     def __getitem__(self, idx: int): # !!! normalization이 없음!
-        img_path, cls = self.sampels[idx]
+        img_path, cls = self.samples[idx]
 
         img = self._load_rgb(img_path)
         mask = self._load_mask(img_path, cls)
+        img = np.asarray(img).copy()
+        mask = np.asarray(mask).copy()
 
         img_t = torch.from_numpy(img).permute(2, 0, 1).float() / 255.0
-        mask_t = torch.from_numpy(img).unsqueeze(0).float() / 255.0
-        mask_t = (mask_t) > 0.5.float()
+        mask_t = torch.from_numpy(mask).unsqueeze(0).float() / 255.0
+        mask_t = (mask_t > 0.5).float()
+        
 
         return img_t, mask_t, cls, str(img_path)
 
@@ -136,9 +140,9 @@ def make_loaders(
     batch_size: int,
     num_workers: int = 2,
 ):
-    train_ds = DefectSegDataset(base_path, "train", img_size_hw, train_ratio, seed)
-    test_ds = DefectSegDataset(base_path, "test", img_size_hw, test_ratio, seed)
-    val_ds = DefectSegDataset(base_path, "val", img_size_hw, 1 - train_ratio - test_ratio, seed)
+    train_ds = DefectSegDataset(base_path, "train", img_size_hw, train_ratio, test_ratio, seed)
+    test_ds = DefectSegDataset(base_path, "test", img_size_hw, train_ratio, test_ratio, seed)
+    val_ds = DefectSegDataset(base_path, "val", img_size_hw, train_ratio, test_ratio, seed)
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
     test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)

@@ -32,6 +32,8 @@ def train_one_epoch(model, loader: DataLoader, optimizer, criterion, device, thr
         masks = masks.to(device, non_blocking=True)
 
         logits = model(imgs)
+    
+
         loss = criterion(logits, masks)
 
         optimizer.zero_grad(set_to_none=True)
