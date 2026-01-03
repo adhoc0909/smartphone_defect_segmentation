@@ -46,5 +46,4 @@ PYTHONPATH=src python scripts/infer.py --image /content/scratch/Scr_0001.jpg --c
 ```
 
 ## Notes
-- 모델 확장은 `src/segtool/models_factory.py`에 추가하세요.
-- 다음 단계로 patch 학습 + sliding-window inference로 확장 추천.
+- 모델 확장은 `src/segtool/models_factory.py`에 추가

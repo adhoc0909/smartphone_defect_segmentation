@@ -105,7 +105,7 @@ def main():
         )
 
     train_loader, val_loader, test_loader = make_loaders(
-    # base_path=cfg.data.base_path / 'data/',
+    #base_path=Path("/home/leehw/project/data"),
     base_path=cfg.data.base_path,
     img_size_hw=(cfg.data.img_size_h, cfg.data.img_size_w),
     train_ratio=cfg.data.train_ratio,
