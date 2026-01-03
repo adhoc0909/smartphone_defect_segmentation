@@ -15,7 +15,7 @@ import zipfile
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--dataset", type=str, required=True)
-    p.add_argument("--kaggle_json", type=str, default="kaggle.json")
+    p.add_argument("--kaggle_json", type=str, default="/content/drive/MyDrive/likelion/kaggle.json")
     p.add_argument("--out_dir", type=str, default="/content")
     p.add_argument("--unzip", action="store_true")
     return p.parse_args()
