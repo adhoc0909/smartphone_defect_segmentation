@@ -1,0 +1,14 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+claude/
+logs/
+data/
+.claude/
+
+# Virtual environments
+.venv
+.env
+.Ds_Store
+.log
