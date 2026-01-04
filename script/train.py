@@ -35,6 +35,8 @@ def parse_args():
     p.add_argument("--weight_decay", type=float, default=0.0) # !!!overfitting 날 경우 튜닝
     p.add_argument("--num_workers", type=int, default=2)
     p.add_argument("--threshold", type=float, default=0.5) # 확률 맵 logit에 대해서 이진 마스크로 바꿀 때 쓰는 하이퍼파라미터
+    p.add_argument("--use_early_stopping", action="store_true", help="Enable early stopping") # early stopping 사용 여부
+    p.add_argument("--patience", type=int, default=5, help="Early stopping patience") # early stopping 값
 
     p.add_argument("--model", type=str, default='unet')
     p.add_argument("--base_channels", type=int, default=32) 
@@ -101,6 +103,8 @@ def main():
                 "base_channels": cfg.base_channels,
                 "loss": "BCEDice",
                 "bce_weight": args.bce_weight,
+                # "use_early_stopping": args.use_early_stopping,
+                "patience": args.patience,
             },
         )
 
@@ -124,6 +128,7 @@ def main():
     print("Run dir:", run_dir)
 
     best_val = -1.0
+    patience_counter = 0
 
     for epoch in range(1, cfg.epochs + 1):
         tr = train_one_epoch(model, train_loader, optim, criterion, device, threshold=cfg.threshold)
@@ -157,11 +162,19 @@ def main():
 
         if va.metrics_defect_only.dice > best_val:
             best_val = va.metrics_defect_only.dice
+            patience_counter = 0  # Reset patience counter
             save_checkpoint(run_dir / "best.pt", model, optim, epoch, extra={"best_val_defect_dice": best_val})
             print(f"  -> saved best.pt (defect dice {best_val:.4f})")
             if cfg.use_wandb:
                 import wandb
                 wandb.run.summary["best_val_defect_dice"] = best_val
+        else:
+            patience_counter += 1
+            
+        # Early stopping check
+        if args.use_early_stopping and patience_counter >= args.patience:
+            print(f"Early stopping triggered at epoch {epoch} (patience {args.patience})")
+            break
 
     if cfg.use_wandb and wandb_run is not None:
         import wandb
