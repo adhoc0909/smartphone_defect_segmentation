@@ -1,6 +1,6 @@
 from __future__ import annotations
 import torch.nn as nn
-from .model import UNet
+from .model import *
 
 def build_model(name: str, base_channels: int = 32) -> nn.Module:
     name = name.lower()
