@@ -6,7 +6,6 @@ def build_model(name: str, base_channels: int = 32) -> nn.Module:
     name = name.lower()
     if name == "unet":
         return UNet(base_channels=base_channels)
-
     if name == "fcn":
-        return FCN
+        return FCN()
     raise ValueError(f"Unknown model name: {name}")
