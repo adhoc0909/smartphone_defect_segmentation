@@ -53,7 +53,7 @@ class UNet(nn.Module):
 # Fully Convolutional Networks (FCN)
 class FCN(nn.Module):
     """Simple FCN baseline using DoubleConv blocks - lightweight 2-stage architecture."""
-    def __init__(self, in_channels: int = 3, out_channels: int = 1, base_channels: int = 32):
+    def __init__(self, in_channels: int = 3, out_channels: int = 1, base_channels: int = 32, dropout: float = 0.0):
         super().__init__()
         c1, c2 = base_channels, base_channels*2
 
@@ -65,6 +65,9 @@ class FCN(nn.Module):
 
         # Bottleneck
         self.bottleneck = DoubleConv(c2, c2*2)
+        
+        # Dropout layer
+        self.dropout = nn.Dropout2d(dropout) if dropout > 0 else nn.Identity()
 
         # Decoder (upsampling) - 2 stages
         self.upconv2 = nn.ConvTranspose2d(c2*2, c2, 2, 2)
@@ -83,8 +86,9 @@ class FCN(nn.Module):
         enc2 = self.encoder2(pool1)  # Skip for upconv2
         pool2 = self.pool2(enc2)
 
-        # Bottleneck
+        # Bottleneck with dropout
         bottleneck = self.bottleneck(pool2)
+        bottleneck = self.dropout(bottleneck)
 
         # Decoder with skip connections (FCN-style)
         up2 = self.upconv2(bottleneck)
