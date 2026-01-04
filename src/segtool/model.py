@@ -1,129 +1,90 @@
 from __future__ import annotations
+
+
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
+from .utils import center_crop_like, make_bilinear_upsample_weight
 
 class DoubleConv(nn.Module):
-    def __init__(self, in_c: int, out_c: int):
+    def __init__(self, in_ch, out_ch):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Conv2d(in_c, out_c, 3, padding=1, bias=True),
+            nn.Conv2d(in_ch, out_ch, kernel_size=3, padding=0, bias=True),
             nn.ReLU(inplace=True),
-            nn.Conv2d(out_c, out_c, 3, padding=1, bias=True),
-            nn.ReLU(inplace=True),
+            nn.Conv2d(out_ch, out_ch, kernel_size=3, padding=0, bias=True),
+            nn.ReLU(inplace=True)
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net(x)
 
 class UNet(nn.Module):
-    """Lightweight U-Net for 256x144 sanity baseline."""
-    def __init__(self, in_channels: int = 3, out_channels: int = 1, base_channels: int = 32):
+    def __init__(self, in_channels: int = 3, num_classes: int = 1, base_channels: int = 64) -> None:
         super().__init__()
-        c1, c2, c3 = base_channels, base_channels*2, base_channels*4
-
-        self.d1 = DoubleConv(in_channels, c1)
+        self.d1 = DoubleConv(in_channels, base_channels) # 64
         self.p1 = nn.MaxPool2d(2)
-        self.d2 = DoubleConv(c1, c2)
+
+        self.d2 = DoubleConv(base_channels, base_channels * 2) # 128
         self.p2 = nn.MaxPool2d(2)
 
-        self.b = DoubleConv(c2, c3)
+        self.d3 = DoubleConv(base_channels * 2, base_channels * 4) # 256
+        self.p3 = nn.MaxPool2d(2)
 
-        self.u2 = nn.ConvTranspose2d(c3, c2, 2, 2)
-        self.c2 = DoubleConv(c2 + c2, c2)
+        self.d4 = DoubleConv(base_channels * 4, base_channels * 8) # 512
+        self.p4 = nn.MaxPool2d(2)
 
-        self.u1 = nn.ConvTranspose2d(c2, c1, 2, 2)
-        self.c1 = DoubleConv(c1 + c1, c1)
+        self.b = DoubleConv(base_channels * 8, base_channels * 16) # 1024
 
-        self.out = nn.Conv2d(c1, out_channels, 1)
+        self.u4 = nn.ConvTranspose2d(base_channels * 16, base_channels * 8, kernel_size=2, stride=2)
+        self.c4 = DoubleConv(base_channels * 16, base_channels * 8)
+
+        self.u3 = nn.ConvTranspose2d(base_channels * 8, base_channels * 4, kernel_size=2, stride=2)
+        self.c3 = DoubleConv(base_channels * 8, base_channels * 4)
+
+        self.u2 = nn.ConvTranspose2d(base_channels * 4, base_channels * 2, kernel_size=2, stride=2)
+        self.c2 = DoubleConv(base_channels * 4, base_channels * 2)
+
+        self.u1 = nn.ConvTranspose2d(base_channels * 2, base_channels, kernel_size=2, stride=2)
+        self.c1 = DoubleConv(base_channels * 2, base_channels)
+
+        self.out = nn.Conv2d(base_channels, num_classes, kernel_size=1)
 
     def forward(self, x):
+        in_hw = x.shape[-2:]
+
         x1 = self.d1(x)
         x2 = self.d2(self.p1(x1))
-        xb = self.b(self.p2(x2))
+        x3 = self.d3(self.p2(x2))
+        x4 = self.d4(self.p3(x3))
+        xb = self.b(self.p4(x4))
 
-        x = self.u2(xb)
-        x = self.c2(torch.cat([x, x2], dim=1))
+        y4 = self.u4(xb)
+        x4c = center_crop_like(x4, y4)
+        y4 = self.c4(torch.cat([x4c, y4], dim=1))
 
-        x = self.u1(x)
-        x = self.c1(torch.cat([x, x1], dim=1))
+        y3 = self.u3(y4)
+        x3c = center_crop_like(x3, y3)
+        y3 = self.c3(torch.cat([x3c, y3], dim=1))
 
-        return self.out(x)
+        y2 = self.u2(y3)
+        x2c = center_crop_like(x2, y2)
+        y2 = self.c2(torch.cat([x2c, y2], dim=1))
+
+        y1 = self.u1(y2)
+        x1c = center_crop_like(x1, y1)
+        y1 = self.c1(torch.cat([x1c, y1], dim=1))
+
+        logits = self.out(y1)
+
+        if logits.shape[-2:] != in_hw:
+            logits = F.interpolate(
+                logits,
+                size=in_hw,
+                mode="bilinear",
+                align_corners=False
+                )
 
 
-class FCN(nn.Module):
-    def __init__(self):
-        super(FCN, self).__init__()
-        
-        self.block1 = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2)
-        )
-        self.block2 = nn.Sequential(
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(128, 128, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2)
-        )
-        self.block3 = nn.Sequential(
-            nn.Conv2d(128, 256, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(256, 256, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2)
-        )
-        self.block4 = nn.Sequential(
-            nn.Conv2d(256, 512, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(512, 512, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2)
-        )
-        self.block5 = nn.Sequential(
-            nn.Conv2d(512, 512, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(512, 512, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2)
-        )
-        
-        self.relu    = nn.ReLU(inplace=True)
-        self.deconv1 = nn.ConvTranspose2d(512, 512, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
-        self.bn1     = nn.BatchNorm2d(512)
-        self.deconv2 = nn.ConvTranspose2d(512, 256, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
-        self.bn2     = nn.BatchNorm2d(256)
-        self.deconv3 = nn.ConvTranspose2d(256, 128, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
-        self.bn3     = nn.BatchNorm2d(128)
-        self.deconv4 = nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
-        self.bn4     = nn.BatchNorm2d(64)
-        self.deconv5 = nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=1, dilation=1, output_padding=1)
-        self.bn5     = nn.BatchNorm2d(32)
-        self.classifier = nn.Conv2d(32, 2, kernel_size=1)
-        
-    def forward(self, x):
-        x = self.block1(x)
-        x1 = x
-        x = self.block2(x)
-        x2 = x
-        x = self.block3(x)
-        x3 = x
-        x = self.block4(x)
-        x4 = x
-        x = self.block5(x)
-        x5 = x
-        
-        score = self.bn1(self.relu(self.deconv1(x5)))     # size=(N, 512, x.H/16, x.W/16)
-        score = score + x4                                # element-wise add, size=(N, 512, x.H/16, x.W/16)
-        score = self.bn2(self.relu(self.deconv2(score)))  # size=(N, 256, x.H/8, x.W/8)
-        score = score + x3                                # element-wise add, size=(N, 256, x.H/8, x.W/8)
-        score = self.bn3(self.relu(self.deconv3(score)))  # size=(N, 128, x.H/4, x.W/4)
-        score = score + x2                                # element-wise add, size=(N, 128, x.H/4, x.W/4)
-        score = self.bn4(self.relu(self.deconv4(score)))  # size=(N, 64, x.H/2, x.W/2)
-        score = score + x1                                # element-wise add, size=(N, 64, x.H/2, x.W/2)
-        score = self.bn5(self.relu(self.deconv5(score)))  # size=(N, 32, x.H, x.W)
-        score = self.classifier(score)                    # size=(N, n_class, x.H/1, x.W/1)
-        
-        return score
+        return logits

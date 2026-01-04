@@ -1,0 +1,43 @@
+{
+  "os":  "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+  "python":  "CPython 3.12.12",
+  "startedAt":  "2026-01-04T08:54:10.120688Z",
+  "args":  [
+    "--base_path=/home/leehw/project/smartphone_defect_segmentation/",
+    "--use_wandb"
+  ],
+  "program":  "/home/leehw/project/smartphone_defect_segmentation/./script/train.py",
+  "codePath":  "script/train.py",
+  "codePathLocal":  "script/train.py",
+  "git":  {
+    "remote":  "https://github.com/adhoc0909/smartphone_defect_segmentation.git",
+    "commit":  "a98f845a19834d5475728ed422bf89b12977efbf"
+  },
+  "email":  "adhoc0909@khu.ac.kr",
+  "root":  "/home/leehw/project/smartphone_defect_segmentation",
+  "host":  "DESKTOP-3D2T16A",
+  "executable":  "/home/leehw/miniconda3/envs/pytorch/bin/python",
+  "cpu_count":  10,
+  "cpu_count_logical":  20,
+  "gpu":  "NVIDIA GeForce RTX 4060 Ti",
+  "gpu_count":  1,
+  "disk":  {
+    "/":  {
+      "total":  "1081101176832",
+      "used":  "29996818432"
+    }
+  },
+  "memory":  {
+    "total":  "16669376512"
+  },
+  "gpu_nvidia":  [
+    {
+      "name":  "NVIDIA GeForce RTX 4060 Ti",
+      "memoryTotal":  "17175674880",
+      "architecture":  "Ada",
+      "uuid":  "GPU-6647cbee-3ed0-5c43-a88e-e109ab197e19"
+    }
+  ],
+  "cudaVersion":  "13.0",
+  "writerId":  "mulw981f62ek94voho6mg5ul3okteduh"
+}

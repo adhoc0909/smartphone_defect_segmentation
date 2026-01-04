@@ -1,0 +1,50 @@
+Run dir: output/unet_h144_w256_bs8_lr0.001
+Traceback (most recent call last):
+  File "/home/leehw/project/smartphone_defect_segmentation/./script/train.py", line 171, in <module>
+    main()
+  File "/home/leehw/project/smartphone_defect_segmentation/./script/train.py", line 129, in main
+    tr = train_one_epoch(model, train_loader, optim, criterion, device, threshold=cfg.threshold)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/leehw/project/smartphone_defect_segmentation/src/segtool/engine.py", line 34, in train_one_epoch
+    logits = model(imgs)
+             ^^^^^^^^^^^
+  File "/home/leehw/miniconda3/envs/pytorch/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/leehw/miniconda3/envs/pytorch/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/leehw/project/smartphone_defect_segmentation/src/segtool/model.py", line 65, in forward
+    y4 = self.c4(torch.cat([x4c, y4], dim=1))
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/leehw/miniconda3/envs/pytorch/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/leehw/miniconda3/envs/pytorch/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/leehw/project/smartphone_defect_segmentation/src/segtool/model.py", line 21, in forward
+    return self.net(x)
+           ^^^^^^^^^^^
+  File "/home/leehw/miniconda3/envs/pytorch/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/leehw/miniconda3/envs/pytorch/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/leehw/miniconda3/envs/pytorch/lib/python3.12/site-packages/torch/nn/modules/container.py", line 250, in forward
+    input = module(input)
+            ^^^^^^^^^^^^^
+  File "/home/leehw/miniconda3/envs/pytorch/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/leehw/miniconda3/envs/pytorch/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/leehw/miniconda3/envs/pytorch/lib/python3.12/site-packages/torch/nn/modules/conv.py", line 554, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/leehw/miniconda3/envs/pytorch/lib/python3.12/site-packages/torch/nn/modules/conv.py", line 549, in _conv_forward
+    return F.conv2d(
+           ^^^^^^^^^
+RuntimeError: Calculated padded input size per channel: (2 x 16). Kernel size: (3 x 3). Kernel size can't be greater than actual input size

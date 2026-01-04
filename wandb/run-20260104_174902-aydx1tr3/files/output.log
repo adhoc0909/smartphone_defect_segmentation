@@ -1,0 +1,23 @@
+Run dir: output/unet_h144_w256_bs8_lr0.001
+Traceback (most recent call last):
+  File "/home/leehw/project/smartphone_defect_segmentation/./script/train.py", line 171, in <module>
+    main()
+  File "/home/leehw/project/smartphone_defect_segmentation/./script/train.py", line 129, in main
+    tr = train_one_epoch(model, train_loader, optim, criterion, device, threshold=cfg.threshold)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/leehw/project/smartphone_defect_segmentation/src/segtool/engine.py", line 34, in train_one_epoch
+    logits = model(imgs)
+             ^^^^^^^^^^^
+  File "/home/leehw/miniconda3/envs/pytorch/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/leehw/miniconda3/envs/pytorch/lib/python3.12/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/leehw/project/smartphone_defect_segmentation/src/segtool/model.py", line 66, in forward
+    x4c = center_crop_like(x4, y4)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/leehw/project/smartphone_defect_segmentation/src/segtool/utils.py", line 50, in center_crop_like
+    return x[:, :, top: top + Hr, left : left + Wr]
+           ~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: only integer tensors of a single element can be converted to an index

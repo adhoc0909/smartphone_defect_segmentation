@@ -14,7 +14,7 @@ from segtool.data import make_loaders
 from segtool.models_factory import build_model
 from segtool.losses import BCEDiceLoss
 from segtool.engine import train_one_epoch, validate
-from segtool.utils import set_seed, get_device, ensure_dir, save_checkpoint
+from segtool.utils import set_seed, get_device, ensure_dir, save_checkpoint, EarlyStopping
 
 def parse_args():
     p = argparse.ArgumentParser()
@@ -22,22 +22,22 @@ def parse_args():
     p.add_argument("--out_dir", type=str, default='./output')
     p.add_argument("--run_name", type=str, default=None)
     
-    p.add_argument("--img_h", type=int, default=144)
-    p.add_argument("--img_w", type=int, default=256)  # !!!이미지 사이즈를 이렇게 정한 근거를 들어야 함
+    p.add_argument("--img_h", type=int, default=288)
+    p.add_argument("--img_w", type=int, default=512)  # !!!이미지 사이즈를 이렇게 정한 근거를 들어야 함
     p.add_argument("--train_ratio", type=float, default=0.7)
     p.add_argument("--test_ratio", type=float, default=0.15)
     p.add_argument("--seed", type=int, default=42)
 
     # hyper parameters
     p.add_argument("--batch_size", type=int, default=8)
-    p.add_argument("--epochs", type=int, default=50)
+    p.add_argument("--epochs", type=int, default=80)
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--weight_decay", type=float, default=0.0) # !!!overfitting 날 경우 튜닝
     p.add_argument("--num_workers", type=int, default=2)
     p.add_argument("--threshold", type=float, default=0.5) # 확률 맵 logit에 대해서 이진 마스크로 바꿀 때 쓰는 하이퍼파라미터
 
     p.add_argument("--model", type=str, default='unet')
-    p.add_argument("--base_channels", type=int, default=32) 
+    p.add_argument("--base_channels", type=int, default=64) 
     p.add_argument("--bce_weight", type=float, default=0.5)
 
      # wandb
@@ -124,6 +124,7 @@ def main():
     print("Run dir:", run_dir)
 
     best_val = -1.0
+    early_stopper = EarlyStopping(patience=15, min_delta=1e-4)
 
     for epoch in range(1, cfg.epochs + 1):
         tr = train_one_epoch(model, train_loader, optim, criterion, device, threshold=cfg.threshold)
@@ -136,6 +137,7 @@ def main():
             f"| val dice(defect) {va.metrics_defect_only.dice:.4f} iou(defect) {va.metrics_defect_only.iou:.4f}"
         )
 
+        # wandb logging
         if cfg.use_wandb:
             import wandb
             wandb.log({
@@ -148,21 +150,37 @@ def main():
                 "val/iou_all": va.metrics_all.iou,
                 "val/dice_defect": va.metrics_defect_only.dice,
                 "val/iou_defect": va.metrics_defect_only.iou,
-                "val/precision_defect": va.metrics_defect_only.precision,
-                "val/recall_defect": va.metrics_defect_only.recall,
             })
 
+        # checkpoint (last)
         if epoch % cfg.save_every == 0:
-            save_checkpoint(run_dir / "last.pt", model, optim, epoch, extra={"run_name": cfg.run_name})
+            save_checkpoint(run_dir / "last.pt", model, optim, epoch)
 
+        # checkpoint (best)
         if va.metrics_defect_only.dice > best_val:
             best_val = va.metrics_defect_only.dice
-            save_checkpoint(run_dir / "best.pt", model, optim, epoch, extra={"best_val_defect_dice": best_val})
+            save_checkpoint(
+                run_dir / "best.pt",
+                model,
+                optim,
+                epoch,
+                extra={"best_val_defect_dice": best_val},
+            )
             print(f"  -> saved best.pt (defect dice {best_val:.4f})")
+
             if cfg.use_wandb:
                 import wandb
                 wandb.run.summary["best_val_defect_dice"] = best_val
 
+        # 🔥 Early stopping check
+        if early_stopper.step(va.metrics_defect_only.dice):
+            print(f"Early stopping triggered at epoch {epoch}")
+            if cfg.use_wandb:
+                import wandb
+                wandb.run.summary["early_stop_epoch"] = epoch
+            break
+
+        
     if cfg.use_wandb and wandb_run is not None:
         import wandb
         wandb.finish()

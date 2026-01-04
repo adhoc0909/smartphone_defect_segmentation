@@ -1,0 +1,17 @@
+Run dir: output/unet_h288_w512_bs8_lr0.001
+[001/50] train loss 0.5559 | dice(all) 0.0000 iou 0.0000 | val loss 0.5146 | dice(all) 0.0000 iou 0.0000 | val dice(defect) 0.0000 iou(defect) 0.0000
+  -> saved best.pt (defect dice 0.0000)
+[002/50] train loss 0.5151 | dice(all) 0.0176 iou 0.0094 | val loss 0.5268 | dice(all) 0.0046 iou 0.0024 | val dice(defect) 0.0014 iou(defect) 0.0007
+  -> saved best.pt (defect dice 0.0014)
+[003/50] train loss 0.5154 | dice(all) 0.0050 iou 0.0026 | val loss 0.5137 | dice(all) 0.0347 iou 0.0185 | val dice(defect) 0.0171 iou(defect) 0.0096
+  -> saved best.pt (defect dice 0.0171)
+Traceback (most recent call last):
+  File "/home/leehw/project/smartphone_defect_segmentation/./script/train.py", line 171, in <module>
+    main()
+  File "/home/leehw/project/smartphone_defect_segmentation/./script/train.py", line 129, in main
+    tr = train_one_epoch(model, train_loader, optim, criterion, device, threshold=cfg.threshold)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/leehw/project/smartphone_defect_segmentation/src/segtool/engine.py", line 43, in train_one_epoch
+    total_loss += float(loss.item())
+                        ^^^^^^^^^^^
+KeyboardInterrupt

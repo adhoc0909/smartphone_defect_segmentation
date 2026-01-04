@@ -1,0 +1,21 @@
+{
+  "os":  "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+  "python":  "CPython 3.12.12",
+  "startedAt":  "2026-01-04T08:45:56.394817Z",
+  "args":  [
+    "--base_path=/home/leehw/project/smartphone_defect_segmentation/",
+    "--use_wandb"
+  ],
+  "program":  "/home/leehw/project/smartphone_defect_segmentation/./script/train.py",
+  "codePath":  "script/train.py",
+  "codePathLocal":  "script/train.py",
+  "git":  {
+    "remote":  "https://github.com/adhoc0909/smartphone_defect_segmentation.git",
+    "commit":  "a98f845a19834d5475728ed422bf89b12977efbf"
+  },
+  "email":  "adhoc0909@khu.ac.kr",
+  "root":  "/home/leehw/project/smartphone_defect_segmentation",
+  "host":  "DESKTOP-3D2T16A",
+  "executable":  "/home/leehw/miniconda3/envs/pytorch/bin/python",
+  "writerId":  "6y6ezrbh50sc6d6v0lyakqhldpgp79qt"
+}
