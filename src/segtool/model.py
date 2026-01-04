@@ -50,7 +50,7 @@ class UNet(nn.Module):
         return self.out(x)
 
 
-# Fully Convolutional Networks (FCN)
+
 class FCN(nn.Module):
     """Simple FCN baseline using DoubleConv blocks - lightweight 2-stage architecture."""
     def __init__(self, in_channels: int = 3, out_channels: int = 1, base_channels: int = 32, dropout: float = 0.0):
@@ -98,3 +98,47 @@ class FCN(nn.Module):
         up1 = self.upconv1(up2)
         up1 = up1 + enc1  # Final skip connection
         return self.classifier(up1)
+
+
+
+class DeepLabv1(nn.Module):
+    """Lightweight atrous CNN (DeepLabv1-style) for semantic segmentation."""
+    def __init__(self, in_channels=3, out_channels=1, base_channels=32, dropout=0.0):
+        super().__init__()
+        c1, c2 = base_channels, base_channels * 2
+
+        # Encoder (downsampling)
+        self.encoder1 = DoubleConv(in_channels, c1)
+        self.pool1 = nn.MaxPool2d(2)
+
+        self.encoder2 = DoubleConv(c1, c2)
+        self.pool2 = nn.MaxPool2d(2)
+
+        # Atrous convolutions (DeepLabv1 핵심)
+        self.atrous1 = nn.Conv2d(c2, c2, 3, padding=2, dilation=2)
+        self.atrous2 = nn.Conv2d(c2, c2, 3, padding=4, dilation=4)
+
+        # Dropout layer
+        self.dropout = nn.Dropout2d(dropout) if dropout > 0 else nn.Identity()
+
+        # Classifier
+        self.classifier = nn.Conv2d(c2, out_channels, 1)
+
+    def forward(self, x):
+        h, w = x.shape[-2:]
+
+        x = self.encoder1(x)
+        x = self.pool1(x)
+
+        x = self.encoder2(x)
+        x = self.pool2(x)
+
+        x = torch.relu(self.atrous1(x))
+        x = torch.relu(self.atrous2(x))
+        x = self.dropout(x)
+
+        x = self.classifier(x)
+
+        # Non-learnable upsampling (DeepLabv1 방식)
+        x = nn.functional.interpolate(x, size=(h, w), mode="bilinear", align_corners=False)
+        return x
