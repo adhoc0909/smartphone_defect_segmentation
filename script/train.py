@@ -45,7 +45,7 @@ def parse_args():
     p.add_argument("--wandb_project", type=str, default="smartphone_defect_segmentation")
     p.add_argument("--wandb_entity", type=str, default=None)
 
-    return p.parse_args()
+    return p.parse_args() #
 
 
 def main():
