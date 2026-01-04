@@ -48,3 +48,49 @@ class UNet(nn.Module):
         x = self.c1(torch.cat([x, x1], dim=1))
 
         return self.out(x)
+
+
+# Fully Convolutional Networks (FCN)
+class FCN(nn.Module):
+    """Simple FCN baseline using DoubleConv blocks - lightweight 2-stage architecture."""
+    def __init__(self, in_channels: int = 3, out_channels: int = 1, base_channels: int = 32):
+        super().__init__()
+        c1, c2 = base_channels, base_channels*2
+
+        # Encoder (downsampling) - 2 stages
+        self.encoder1 = DoubleConv(in_channels, c1)
+        self.pool1 = nn.MaxPool2d(2)
+        self.encoder2 = DoubleConv(c1, c2)
+        self.pool2 = nn.MaxPool2d(2)
+
+        # Bottleneck
+        self.bottleneck = DoubleConv(c2, c2*2)
+
+        # Decoder (upsampling) - 2 stages
+        self.upconv2 = nn.ConvTranspose2d(c2*2, c2, 2, 2)
+        self.upconv1 = nn.ConvTranspose2d(c2, c1, 2, 2)
+
+        # Skip connection processing
+        self.skip_conv2 = nn.Conv2d(c2, c2, 1)  # pool1 output
+        
+        # Final classifier
+        self.classifier = nn.Conv2d(c1, out_channels, 1)
+
+    def forward(self, x):
+        # Encoder with skip connections
+        enc1 = self.encoder1(x)      # Skip for final fusion
+        pool1 = self.pool1(enc1)
+        enc2 = self.encoder2(pool1)  # Skip for upconv2
+        pool2 = self.pool2(enc2)
+
+        # Bottleneck
+        bottleneck = self.bottleneck(pool2)
+
+        # Decoder with skip connections (FCN-style)
+        up2 = self.upconv2(bottleneck)
+        skip2 = self.skip_conv2(enc2)
+        up2 = up2 + skip2  # Element-wise addition (FCN style)
+
+        up1 = self.upconv1(up2)
+        up1 = up1 + enc1  # Final skip connection
+        return self.classifier(up1)
