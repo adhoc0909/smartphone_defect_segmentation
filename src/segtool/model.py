@@ -326,3 +326,78 @@ class FCN8s(nn.Module):
             fuse_pool3 = F.interpolate(fuse_pool3, size=in_hw, mode="bilinear", align_corners=False)
 
         return fuse_pool3
+
+
+class DeepLabV1(nn.Module):
+    """
+    DeepLab v1 style (VGG-like + atrous conv)
+    - no skip
+    - no ASPP
+    - no CRF (post-processing)
+    """
+    def __init__(
+        self,
+        in_channels: int = 3,
+        num_classes: int = 1,
+        base_channels: int = 64,
+    ):
+        super().__init__()
+
+        # -------- Encoder (VGG-like) --------
+        self.conv1 = DoubleConv(in_channels, base_channels)          # 64
+        self.pool1 = nn.MaxPool2d(2)                                 # /2
+
+        self.conv2 = DoubleConv(base_channels, base_channels * 2)    # 128
+        self.pool2 = nn.MaxPool2d(2)                                 # /4
+
+        self.conv3 = DoubleConv(base_channels * 2, base_channels * 4)# 256
+        self.pool3 = nn.MaxPool2d(2)                                 # /8
+
+        # ❗ 여기부터 pooling 제거 + dilation
+        self.conv4 = nn.Sequential(
+            nn.Conv2d(base_channels * 4, base_channels * 8, 3, padding=2, dilation=2),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(base_channels * 8, base_channels * 8, 3, padding=2, dilation=2),
+            nn.ReLU(inplace=True),
+        )
+
+        self.conv5 = nn.Sequential(
+            nn.Conv2d(base_channels * 8, base_channels * 16, 3, padding=4, dilation=4),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(base_channels * 16, base_channels * 16, 3, padding=4, dilation=4),
+            nn.ReLU(inplace=True),
+        )
+
+        # -------- Classifier --------
+        self.classifier = nn.Sequential(
+            nn.Conv2d(base_channels * 16, base_channels * 16, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(base_channels * 16, num_classes, kernel_size=1),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        in_hw = x.shape[-2:]
+
+        x = self.conv1(x)
+        x = self.pool1(x)
+
+        x = self.conv2(x)
+        x = self.pool2(x)
+
+        x = self.conv3(x)
+        x = self.pool3(x)    # stride = 8
+
+        x = self.conv4(x)    # dilation=2
+        x = self.conv5(x)    # dilation=4
+
+        logits = self.classifier(x)
+
+        # upsample to input resolution
+        logits = F.interpolate(
+            logits,
+            size=in_hw,
+            mode="bilinear",
+            align_corners=False,
+        )
+
+        return logits
