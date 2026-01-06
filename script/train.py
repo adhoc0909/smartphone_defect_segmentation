@@ -45,11 +45,52 @@ def parse_args():
     p.add_argument("--wandb_project", type=str, default="smartphone_defect_segmentation")
     p.add_argument("--wandb_entity", type=str, default=None)
 
+    # augmentations (comma-separated). default: none
+    p.add_argument(
+        "--augs",
+        type=str,
+        default="none",
+        help="comma-separated: none, bcg, blur, noise, specular, colorjitter",
+    )
+    p.add_argument("--aug_p", type=float, default=0.5, help="probability for each enabled aug")
+    # optional knobs (reasonable defaults)
+    p.add_argument("--noise_std", type=float, default=0.03, help="noise std in [0,1] scale")
+    p.add_argument("--blur_sigma", type=float, default=1.2, help="gaussian blur sigma")
+    p.add_argument("--specular_strength", type=float, default=0.8)
+    p.add_argument("--specular_radius_min", type=int, default=20)
+    p.add_argument("--specular_radius_max", type=int, default=120)
+    p.add_argument("--cj_saturation", type=float, default=0.2, help="+- range around 1.0")
+    p.add_argument("--cj_hue", type=float, default=0.03)
+
     return p.parse_args() #
 
 
 def main():
     args = parse_args()
+    # build augmentation config (photometric only)
+    augs = [a.strip().lower() for a in args.augs.split(",") if a.strip()]
+    if "none" in augs:
+        augs = []
+    aug_config = {
+        "augs": augs,
+        "p": float(args.aug_p),
+        "brightness": (0.8, 1.2),
+        "contrast": (0.8, 1.2),
+        "gamma": (0.8, 1.2),
+        "blur_sigma": (max(0.1, args.blur_sigma * 0.5), max(0.1, args.blur_sigma * 1.5)),
+        "noise_std": (0.0, max(0.0, float(args.noise_std))),
+        "specular": {
+            "strength": float(args.specular_strength),
+            "radius_min": int(args.specular_radius_min),
+            "radius_max": int(args.specular_radius_max),
+            "n_blobs": 2,
+        },
+        "colorjitter": {
+            "saturation": (max(0.0, 1.0 - float(args.cj_saturation)), 1.0 + float(args.cj_saturation)),
+            "hue": float(args.cj_hue),
+        },
+    }
+
     cfg = TrainConfig(
         data=DataConfig(
             base_path=Path(args.base_path),
@@ -113,6 +154,7 @@ def main():
     seed=cfg.data.seed,
     batch_size=cfg.batch_size,
     num_workers=cfg.num_workers,
+    aug_config=aug_config,
     )
 
     model = build_model(cfg.model_name, base_channels=cfg.base_channels).to(device)

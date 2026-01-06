@@ -6,7 +6,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-from PIL import Image
+import random
+from PIL import Image, ImageEnhance, ImageFilter
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -36,6 +37,108 @@ def _list_images(folder: Path) -> List[Path]:
         out.extend([Path(p) for p in glob.glob(str(folder / e))])
     return sorted(out)
 
+
+def _rand_uniform(a: float, b: float) -> float:
+    return float(a + (b - a) * random.random())
+
+def _apply_photometric_aug(img_pil: Image.Image, aug_config: dict) -> Image.Image:
+    """
+    Photometric-only augmentations (mask unaffected).
+    aug_config:
+      - augs: list[str] among {"bcg","blur","noise","specular","colorjitter"}
+      - p: probability for each enabled aug (default 0.5)
+      - brightness: (min,max) e.g. (0.8,1.2)
+      - contrast: (min,max)
+      - gamma: (min,max)
+      - blur_sigma: (min,max)
+      - noise_std: (min,max) in [0,1] scale (applied to float image)
+      - specular: dict with strength/radius
+      - colorjitter: dict with saturation/hue
+    """
+    augs = set([a.lower() for a in aug_config.get("augs", [])])
+    if not augs:
+        return img_pil
+
+    p = float(aug_config.get("p", 0.5))
+
+    # 1) brightness/contrast/gamma
+    if "bcg" in augs and random.random() < p:
+        bmin, bmax = aug_config.get("brightness", (0.8, 1.2))
+        cmin, cmax = aug_config.get("contrast", (0.8, 1.2))
+        gmin, gmax = aug_config.get("gamma", (0.8, 1.2))
+
+        img_pil = ImageEnhance.Brightness(img_pil).enhance(_rand_uniform(bmin, bmax))
+        img_pil = ImageEnhance.Contrast(img_pil).enhance(_rand_uniform(cmin, cmax))
+
+        gamma = _rand_uniform(gmin, gmax)
+        if abs(gamma - 1.0) > 1e-6:
+            arr = np.asarray(img_pil).astype(np.float32) / 255.0
+            arr = np.clip(arr, 0.0, 1.0) ** gamma
+            img_pil = Image.fromarray((arr * 255.0).clip(0, 255).astype(np.uint8))
+
+    # 2) blur (focus shake approximation)
+    if "blur" in augs and random.random() < p:
+        smin, smax = aug_config.get("blur_sigma", (0.6, 1.8))
+        sigma = _rand_uniform(smin, smax)
+        img_pil = img_pil.filter(ImageFilter.GaussianBlur(radius=sigma))
+
+    # Convert to float array once if needed
+    arr = None
+
+    # 3) noise
+    if "noise" in augs and random.random() < p:
+        nmin, nmax = aug_config.get("noise_std", (0.01, 0.05))
+        std = _rand_uniform(nmin, nmax)
+        arr = np.asarray(img_pil).astype(np.float32) / 255.0
+        noise = np.random.normal(0.0, std, size=arr.shape).astype(np.float32)
+        arr = np.clip(arr + noise, 0.0, 1.0)
+        img_pil = Image.fromarray((arr * 255.0).astype(np.uint8))
+        arr = None  # reset
+
+    # 4) specular highlight (strong reflection-ish)
+    if "specular" in augs and random.random() < p:
+        # simple: add one or two gaussian blobs
+        cfg = aug_config.get("specular", {})
+        strength = float(cfg.get("strength", 0.8))     # 0~1
+        radius_min = int(cfg.get("radius_min", 20))
+        radius_max = int(cfg.get("radius_max", 120))
+        n_blobs = int(cfg.get("n_blobs", 2))
+
+        arr = np.asarray(img_pil).astype(np.float32) / 255.0
+        h, w = arr.shape[0], arr.shape[1]
+        yy, xx = np.mgrid[0:h, 0:w]
+
+        for _ in range(n_blobs):
+            cx = random.randint(0, w - 1)
+            cy = random.randint(0, h - 1)
+            r = random.randint(radius_min, max(radius_min, radius_max))
+            # gaussian falloff
+            dist2 = (xx - cx) ** 2 + (yy - cy) ** 2
+            blob = np.exp(-dist2 / (2.0 * (r ** 2))).astype(np.float32)
+            blob = blob[..., None]  # (H,W,1)
+            arr = np.clip(arr + strength * blob, 0.0, 1.0)
+
+        img_pil = Image.fromarray((arr * 255.0).astype(np.uint8))
+        arr = None
+
+    # 5) color jitter (saturation + hue)
+    if "colorjitter" in augs and random.random() < p:
+        cfg = aug_config.get("colorjitter", {})
+        smin, smax = cfg.get("saturation", (0.8, 1.2))
+        hue = float(cfg.get("hue", 0.03))  # max hue shift in [-hue, +hue] (fraction of 1.0)
+        img_pil = ImageEnhance.Color(img_pil).enhance(_rand_uniform(smin, smax))
+
+        # Hue shift via HSV
+        arr = np.asarray(img_pil).astype(np.uint8)
+        hsv = Image.fromarray(arr, mode="RGB").convert("HSV")
+        hsv_np = np.asarray(hsv).astype(np.uint8)
+        shift = int(_rand_uniform(-hue, hue) * 255)  # HSV hue in [0,255)
+        hsv_np[..., 0] = (hsv_np[..., 0].astype(int) + shift) % 256
+        img_pil = Image.fromarray(hsv_np, mode="HSV").convert("RGB")
+
+    return img_pil
+
+
 def find_mask(img_path: Path, defect_type: str, mask_dirs: Dict[str, Path]) -> Optional[Path]:
     if defect_type == "good":
         return None
@@ -56,6 +159,7 @@ class DefectSegDataset(Dataset):
         train_ratio: float = 0.7,
         test_ratio: float = 0.15,
         seed: int = 42,
+        aug_config: Optional[dict] = None,
     )  -> None:
         assert split in {"train", "val", "test"}
         self.base_path = base_path
@@ -63,6 +167,8 @@ class DefectSegDataset(Dataset):
         paths = default_paths(base_path)
         self.img_dirs = paths.img_dirs
         self.mask_dirs = paths.mask_dirs
+
+        self.aug_config = aug_config or {}
 
         rng = np.random.default_rng(seed)
 
@@ -139,10 +245,11 @@ def make_loaders(
     seed: int,
     batch_size: int,
     num_workers: int = 2,
+    aug_config: Optional[dict] = None,
 ):
-    train_ds = DefectSegDataset(base_path, "train", img_size_hw, train_ratio, test_ratio, seed)
-    test_ds = DefectSegDataset(base_path, "test", img_size_hw, train_ratio, test_ratio, seed)
-    val_ds = DefectSegDataset(base_path, "val", img_size_hw, train_ratio, test_ratio, seed)
+    train_ds = DefectSegDataset(base_path, "train", img_size_hw, train_ratio, test_ratio, seed, aug_config=aug_config)
+    test_ds = DefectSegDataset(base_path, "test", img_size_hw, train_ratio, test_ratio, seed, aug_config=aug_config)
+    val_ds = DefectSegDataset(base_path, "val", img_size_hw, train_ratio, test_ratio, seed, aug_config=aug_config)
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
     test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
     val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)
