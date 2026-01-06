@@ -407,7 +407,7 @@ class smallUNet(nn.Module):
     """Lightweight U-Net for 256x144 sanity baseline."""
     def init(self, in_channels: int = 3, out_channels: int = 1, base_channels: int = 32):
         super().init()
-        c1, c2, c3 = base_channels, base_channels2, base_channels4
+        c1, c2, c3 = base_channels, base_channels*2, base_channels*4
 
         self.d1 = DoubleConv(in_channels, c1)
         self.p1 = nn.MaxPool2d(2)
