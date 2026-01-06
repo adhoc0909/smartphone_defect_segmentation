@@ -406,7 +406,7 @@ class DeepLabV1(nn.Module):
 class smallUNet(nn.Module):
     """Lightweight U-Net for 256x144 sanity baseline."""
     def __init__(self, in_channels: int = 3, out_channels: int = 1, base_channels: int = 32):
-        super().init()
+        super().__init__()
         c1, c2, c3 = base_channels, base_channels*2, base_channels*4
 
         self.d1 = DoubleConv(in_channels, c1)
