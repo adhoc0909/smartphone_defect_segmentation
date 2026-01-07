@@ -15,7 +15,9 @@ def set_seed(seed: int) -> None:
     torch.backends.cudnn.benchmark = False
 
 def get_device() -> torch.device:
-    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # 수정: mps 추가
+    return torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
 def ensure_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)

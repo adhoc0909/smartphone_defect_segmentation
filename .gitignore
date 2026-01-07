@@ -1,0 +1,36 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+*.pyc
+build/
+claude/
+logs/
+data/
+.claude/
+
+# Virtual environments
+.venv/
+.env/
+.env
+.DS_Store
+*.log
+
+# Models
+models/
+
+# uv files
+uv.lock
+pyproject.toml
+.python-version
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

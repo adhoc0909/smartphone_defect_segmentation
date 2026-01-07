@@ -16,17 +16,25 @@ class DatasetPaths:
     img_dirs: Dict[str, Path]
     mask_dirs: Dict[str, Path]
 
-def default_paths(base: Path) -> DatasetPaths:
+def default_paths(base: Path, include_augmented: bool = True) -> DatasetPaths:
     img_dirs = {
         "scratch": base / "scratch",
         "oil": base / "oil",
         "stain": base / "stain",
+        "good": base / "good",  # good 클래스 추가
     }
     mask_dirs = {
         "scratch": base / "ground_truth_1",
         "stain": base / "ground_truth_1",
         "oil": base / "ground_truth_2",
+        "good": None,  # good은 마스크 없음
     }
+    
+    # 증강 데이터 추가 (새 스크래치 클래스 포함)
+    if include_augmented and (base / "aug").exists():
+        img_dirs["scratch_synthetic"] = base / "aug"  # 새 스크래치 클래스
+        mask_dirs["scratch_synthetic"] = base / "aug_mask"
+    
     return DatasetPaths(img_dirs=img_dirs, mask_dirs=mask_dirs)
 
 def _list_images(folder: Path) -> List[Path]:
@@ -36,10 +44,20 @@ def _list_images(folder: Path) -> List[Path]:
         out.extend([Path(p) for p in glob.glob(str(folder / e))])
     return sorted(out)
 
+
 def find_mask(img_path: Path, defect_type: str, mask_dirs: Dict[str, Path]) -> Optional[Path]:
     if defect_type == "good":
         return None
+    
     fname = img_path.name
+    
+    # 새 스크래치 클래스 처리
+    if defect_type == "scratch_synthetic":
+        mask_fname = os.path.splitext(fname)[0] + ".png"
+        mask_path = mask_dirs[defect_type] / mask_fname
+        return mask_path if mask_path.exists() else None
+    
+    # 원본 데이터 처리
     if fname.lower().endswith(".jpg") or fname.lower().endswith(".jpeg"):
         fname = os.path.splitext(fname)[0] + ".png"
     mask_path = mask_dirs[defect_type] / fname
@@ -56,11 +74,15 @@ class DefectSegDataset(Dataset):
         train_ratio: float = 0.7,
         test_ratio: float = 0.15,
         seed: int = 42,
+        include_augmented: bool = True,
     )  -> None:
         assert split in {"train", "val", "test"}
         self.base_path = base_path
         self.img_h, self.img_w = img_size_hw
-        paths = default_paths(base_path)
+        
+        # 증강 데이터 포함 (디버깅 완료)
+        use_augmented = include_augmented
+        paths = default_paths(base_path, use_augmented)
         self.img_dirs = paths.img_dirs
         self.mask_dirs = paths.mask_dirs
 
@@ -90,11 +112,12 @@ class DefectSegDataset(Dataset):
 
             self.samples.extend([(p, cls) for p in chosen])
 
-    def __len__(self) -> ing:
+    def __len__(self) -> int:
         return len(self.samples)
 
     def _load_rgb(self, path: Path) -> np.ndarray:
         img = (
+            Image.open(path).convert("RGB").resize((self.img_w, self.img_h), Image.BILINEAR)
             Image.open(path).convert("RGB").resize((self.img_w, self.img_h), Image.BILINEAR)
         )
         return np.asarray(img)
@@ -114,17 +137,24 @@ class DefectSegDataset(Dataset):
         )
         m = np.asarray(mask)
     
+    
         return (m > 0).astype(np.uint8) * 255
 
     def __getitem__(self, idx: int): # !!! normalization이 없음!
+        img_path, cls = self.samples[idx]
         img_path, cls = self.samples[idx]
 
         img = self._load_rgb(img_path)
         mask = self._load_mask(img_path, cls)
         img = np.asarray(img).copy()
         mask = np.asarray(mask).copy()
+        img = np.asarray(img).copy()
+        mask = np.asarray(mask).copy()
 
         img_t = torch.from_numpy(img).permute(2, 0, 1).float() / 255.0
+        mask_t = torch.from_numpy(mask).unsqueeze(0).float() / 255.0
+        mask_t = (mask_t > 0.5).float()
+        
         mask_t = torch.from_numpy(mask).unsqueeze(0).float() / 255.0
         mask_t = (mask_t > 0.5).float()
         
@@ -139,6 +169,7 @@ def make_loaders(
     seed: int,
     batch_size: int,
     num_workers: int = 2,
+    include_augmented: bool = True,
 ):
     train_ds = DefectSegDataset(base_path, "train", img_size_hw, train_ratio, test_ratio, seed)
     test_ds = DefectSegDataset(base_path, "test", img_size_hw, train_ratio, test_ratio, seed)

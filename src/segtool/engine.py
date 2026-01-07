@@ -21,11 +21,11 @@ def _defect_only_metrics(logits: torch.Tensor, targets: torch.Tensor, threshold:
             ms.append(compute_metrics(logits[b:b+1], targets[b:b+1], threshold=threshold))
     return reduce_mean(ms)
 
-def train_one_epoch(model, loader: DataLoader, optimizer, criterion, device, threshold: float) -> EppochResult:
+def train_one_epoch(model, loader: DataLoader, optimizer, criterion, device, threshold: float) -> EpochResult:
     model.train()
     total_loss = 0.0
     ms_all: List[Metrics] = []
-    ms_def: List[Metric] = []
+    ms_def: List[Metrics] = []
 
     for imgs, masks, _, _ in loader:
         imgs = imgs.to(device, non_blocking=True)
