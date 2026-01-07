@@ -40,7 +40,7 @@ def _list_images(folder: Path) -> List[Path]:
 def _rand_uniform(a: float, b: float) -> float:
     return float(a + (b - a) * random.random())
 
-def _apply_photometric_aug(img_pil: Image.Image, aug_config: dict) -> Image.Image:
+def _apply_photometric_aug(img_pil: Image.Image, aug_config: dict) -> Image.Image: #!
     """
     Photometric-only augmentations (mask unaffected).
     aug_config:
@@ -166,7 +166,7 @@ class DefectSegDataset(Dataset):
         self.img_dirs = paths.img_dirs
         self.mask_dirs = paths.mask_dirs
 
-        self.aug_config = aug_config or {}
+        self.aug_config = aug_config or {} #!
 
         rng = np.random.default_rng(seed)
         self.samples: List[Tuple[Path, str]] = []
@@ -217,7 +217,7 @@ class DefectSegDataset(Dataset):
         img_pil = self._load_rgb_pil(img_path)
 
         # ✅ train에서만 photometric aug 적용 (val/test는 절대 X)
-        if self.split == "train" and self.aug_config.get("augs"):
+        if self.split == "train" and self.aug_config.get("augs"): #!
             img_pil = _apply_photometric_aug(img_pil, self.aug_config)
 
         img = np.asarray(img_pil).copy()
@@ -241,9 +241,9 @@ def make_loaders(
     aug_config: Optional[dict] = None,
 ):
     # ✅ train만 aug_config 사용, val/test는 None(=augmentation 완전 OFF)
-    train_ds = DefectSegDataset(base_path, "train", img_size_hw, train_ratio, test_ratio, seed, aug_config=aug_config)
-    test_ds  = DefectSegDataset(base_path, "test",  img_size_hw, train_ratio, test_ratio, seed, aug_config=None)
-    val_ds   = DefectSegDataset(base_path, "val",   img_size_hw, train_ratio, test_ratio, seed, aug_config=None)
+    train_ds = DefectSegDataset(base_path, "train", img_size_hw, train_ratio, test_ratio, seed, aug_config=aug_config) #!
+    test_ds  = DefectSegDataset(base_path, "test",  img_size_hw, train_ratio, test_ratio, seed, aug_config=None) #!
+    val_ds   = DefectSegDataset(base_path, "val",   img_size_hw, train_ratio, test_ratio, seed, aug_config=None) #!
 
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,  num_workers=num_workers, pin_memory=True)
     test_loader  = DataLoader(test_ds,  batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True)

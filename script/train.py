@@ -52,19 +52,19 @@ def parse_args():
         default="none",
         help="comma-separated: none, bcg, blur, noise, specular, colorjitter",
     )
-    p.add_argument("--aug_p_img", type=float, default=0.2, help="probability to apply ANY augmentation to an image (e.g., 0.2 => 80% original)")
-    p.add_argument("--aug_p", type=float, default=0.3, help="probability for each enabled aug (given aug_p_img gate passed)")
+    p.add_argument("--aug_p_img", type=float, default=0.2, help="probability to apply ANY augmentation to an image (e.g., 0.2 => 80% original)") #!
+    p.add_argument("--aug_p", type=float, default=0.3, help="probability for each enabled aug (given aug_p_img gate passed)") #!
 
     # optional knobs (reasonable defaults)
-    p.add_argument("--noise_std", type=float, default=0.03, help="noise std in [0,1] scale")
-    p.add_argument("--blur_sigma", type=float, default=1.2, help="gaussian blur sigma")
-    p.add_argument("--specular_strength", type=float, default=0.8)
-    p.add_argument("--specular_radius_min", type=int, default=20)
-    p.add_argument("--specular_radius_max", type=int, default=120)
-    p.add_argument("--cj_saturation", type=float, default=0.2, help="+- range around 1.0")
-    p.add_argument("--cj_hue", type=float, default=0.03)
+    p.add_argument("--noise_std", type=float, default=0.03, help="noise std in [0,1] scale") #!
+    p.add_argument("--blur_sigma", type=float, default=1.2, help="gaussian blur sigma") #!
+    p.add_argument("--specular_strength", type=float, default=0.8) #!
+    p.add_argument("--specular_radius_min", type=int, default=20) #!
+    p.add_argument("--specular_radius_max", type=int, default=120) #!
+    p.add_argument("--cj_saturation", type=float, default=0.2, help="+- range around 1.0") #!
+    p.add_argument("--cj_hue", type=float, default=0.03) #!
 
-    return p.parse_args() #
+    return p.parse_args() 
 
 
 def main():
@@ -78,7 +78,7 @@ def main():
 
     aug_config = None
     if len(augs) > 0:
-        aug_config = {
+        aug_config = { #!
             "augs": augs,
             "p_img": float(args.aug_p_img),   # ✅ 추가: 이미지 단위 gate
             "p": float(args.aug_p),           # ✅ 기존: aug별 확률
@@ -166,7 +166,7 @@ def main():
         seed=cfg.data.seed,
         batch_size=cfg.batch_size,
         num_workers=cfg.num_workers,
-        aug_config=aug_config,  # ✅ none이면 None으로 들어감
+        aug_config=aug_config,  #!
     )
 
 
