@@ -52,7 +52,9 @@ def parse_args():
         default="none",
         help="comma-separated: none, bcg, blur, noise, specular, colorjitter",
     )
-    p.add_argument("--aug_p", type=float, default=0.5, help="probability for each enabled aug")
+    p.add_argument("--aug_p_img", type=float, default=0.2, help="probability to apply ANY augmentation to an image (e.g., 0.2 => 80% original)")
+    p.add_argument("--aug_p", type=float, default=0.3, help="probability for each enabled aug (given aug_p_img gate passed)")
+
     # optional knobs (reasonable defaults)
     p.add_argument("--noise_std", type=float, default=0.03, help="noise std in [0,1] scale")
     p.add_argument("--blur_sigma", type=float, default=1.2, help="gaussian blur sigma")
@@ -68,28 +70,38 @@ def parse_args():
 def main():
     args = parse_args()
     # build augmentation config (photometric only)
+    # --- main()에서 aug_config 만드는 부분을 아래로 교체 ---
+
     augs = [a.strip().lower() for a in args.augs.split(",") if a.strip()]
     if "none" in augs:
         augs = []
-    aug_config = {
-        "augs": augs,
-        "p": float(args.aug_p),
-        "brightness": (0.8, 1.2),
-        "contrast": (0.8, 1.2),
-        "gamma": (0.8, 1.2),
-        "blur_sigma": (max(0.1, args.blur_sigma * 0.5), max(0.1, args.blur_sigma * 1.5)),
-        "noise_std": (0.0, max(0.0, float(args.noise_std))),
-        "specular": {
-            "strength": float(args.specular_strength),
-            "radius_min": int(args.specular_radius_min),
-            "radius_max": int(args.specular_radius_max),
-            "n_blobs": 2,
-        },
-        "colorjitter": {
-            "saturation": (max(0.0, 1.0 - float(args.cj_saturation)), 1.0 + float(args.cj_saturation)),
-            "hue": float(args.cj_hue),
-        },
-    }
+
+    aug_config = None
+    if len(augs) > 0:
+        aug_config = {
+            "augs": augs,
+            "p_img": float(args.aug_p_img),   # ✅ 추가: 이미지 단위 gate
+            "p": float(args.aug_p),           # ✅ 기존: aug별 확률
+            "brightness": (0.8, 1.2),
+            "contrast": (0.8, 1.2),
+            "gamma": (0.8, 1.2),
+            "blur_sigma": (max(0.1, args.blur_sigma * 0.5), max(0.1, args.blur_sigma * 1.5)),
+            "noise_std": (0.0, max(0.0, float(args.noise_std))),
+            "specular": {
+                "strength": float(args.specular_strength),
+                "radius_min": int(args.specular_radius_min),
+                "radius_max": int(args.specular_radius_max),
+                "n_blobs": 2,
+            },
+            "colorjitter": {
+                "saturation": (
+                    max(0.0, 1.0 - float(args.cj_saturation)),
+                    1.0 + float(args.cj_saturation),
+                ),
+                "hue": float(args.cj_hue),
+            },
+        }
+
 
     cfg = TrainConfig(
         data=DataConfig(
@@ -145,17 +157,18 @@ def main():
             },
         )
 
+    # --- make_loaders 호출은 그대로 두면 됨 ---
     train_loader, val_loader, test_loader = make_loaders(
-    #base_path=Path("/home/leehw/project/data"),
-    base_path=cfg.data.base_path,
-    img_size_hw=(cfg.data.img_size_h, cfg.data.img_size_w),
-    train_ratio=cfg.data.train_ratio,
-    test_ratio=cfg.data.test_ratio,
-    seed=cfg.data.seed,
-    batch_size=cfg.batch_size,
-    num_workers=cfg.num_workers,
-    aug_config=aug_config,
+        base_path=cfg.data.base_path,
+        img_size_hw=(cfg.data.img_size_h, cfg.data.img_size_w),
+        train_ratio=cfg.data.train_ratio,
+        test_ratio=cfg.data.test_ratio,
+        seed=cfg.data.seed,
+        batch_size=cfg.batch_size,
+        num_workers=cfg.num_workers,
+        aug_config=aug_config,  # ✅ none이면 None으로 들어감
     )
+
 
     model = build_model(cfg.model_name, base_channels=cfg.base_channels).to(device)
     criterion = BCEDiceLoss(bce_weight=args.bce_weight)
