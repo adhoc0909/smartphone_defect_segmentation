@@ -13,3 +13,9 @@ data/
 .env
 .Ds_Store
 .log
+
+# models
+models/
+
+# uv files
+# *uv.lock
