@@ -9,13 +9,28 @@ data/
 .claude/
 
 # Virtual environments
-.venv
+.venv/
+.env/
 .env
-.Ds_Store
-.log
+.DS_Store
+*.log
 
-# models
+# Models
 models/
 
 # uv files
-# *uv.lock
+uv.lock
+pyproject.toml
+.python-version
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
