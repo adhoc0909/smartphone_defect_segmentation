@@ -10,4 +10,6 @@ def build_model(name: str, base_channels: int = 32) -> nn.Module:
         return FCN8s(in_channels=3, num_classes=1, base_channels=base_channels)
     if name == 'deeplabv1':
         return DeepLabV1(in_channels=3, num_classes=1, base_channels=base_channels)
+    if name == 'smallunet':
+        return smallUNet(in_channels=3, out_channels=1, base_channels=base_channels)
     raise ValueError(f"Unknown model name: {name}")
