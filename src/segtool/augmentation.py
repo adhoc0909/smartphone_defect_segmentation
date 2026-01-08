@@ -404,20 +404,24 @@ class CVAugmentor:
         return output_paths
 
     def augment_dataset_with_ratio(self, input_dir: str, output_dir: str, 
-                                  augment_ratios: Dict[str, float] = None, 
+                                  augment_ratios: Dict[str, float] = None,
+                                  augment_counts: Dict[str, int] = None,
                                   exclude_classes: List[str] = None):
         """
-        클래스별 비율에 따라 데이터셋 증강
+        클래스별 비율 또는 개수에 따라 데이터셋 증강
         
         Args:
             input_dir: 입력 데이터셋 디렉토리
             output_dir: 출력 디렉토리 
             augment_ratios: 클래스별 증강 비율 딕셔너리 (예: {"good": 0.5, "oil": 0.3})
                            0.5 = 50% 이미지만 증강, None이면 전체 증강
+            augment_counts: 클래스별 증강 개수 딕셔너리 (예: {"good": 50, "oil": 100})
+                           ratios보다 우선순위 높음
             exclude_classes: 제외할 클래스 리스트
         """
         exclude_classes = exclude_classes or []
         augment_ratios = augment_ratios or {}
+        augment_counts = augment_counts or {}
         
         for class_name in os.listdir(input_dir):
             class_path = os.path.join(input_dir, class_name)
@@ -436,18 +440,35 @@ class CVAugmentor:
             image_files = [f for f in os.listdir(class_path) 
                           if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
             
-            # 증강할 비율 결정
-            ratio = augment_ratios.get(class_name, 1.0)  # 기본값 100%
-            num_to_augment = int(len(image_files) * ratio)
+            # 증강할 개수 결정 (count가 ratio보다 우선순위 높음)
+            if class_name in augment_counts:
+                num_to_augment = min(augment_counts[class_name], len(image_files))
+                mode = "count"
+                value = augment_counts[class_name]
+            elif class_name in augment_ratios:
+                ratio = augment_ratios[class_name]
+                num_to_augment = int(len(image_files) * ratio)
+                mode = "ratio"
+                value = ratio
+            else:
+                # counts와 ratios 모두에 없으면 증강 안함
+                logger.info(f"Class {class_name}: Skipping (not specified in counts or ratios)")
+                continue
             
             if num_to_augment == 0:
-                logger.info(f"Class {class_name}: Skipping (ratio: {ratio*100:.1f}%)")
+                if mode == "count":
+                    logger.info(f"Class {class_name}: Skipping (count: {value})")
+                else:
+                    logger.info(f"Class {class_name}: Skipping (ratio: {value*100:.1f}%)")
                 continue
             
             # 랜덤하게 선택
             selected_files = random.sample(image_files, num_to_augment)
             
-            logger.info(f"Class {class_name}: Augmenting {num_to_augment}/{len(image_files)} images ({ratio*100:.1f}%)")
+            if mode == "count":
+                logger.info(f"Class {class_name}: Augmenting {num_to_augment}/{len(image_files)} images (count: {value})")
+            else:
+                logger.info(f"Class {class_name}: Augmenting {num_to_augment}/{len(image_files)} images ({value*100:.1f}%)")
             
             for img_file in selected_files:
                 input_path = os.path.join(class_path, img_file)
@@ -741,8 +762,9 @@ class CVAugmentor:
 
 
 def cli_augment_dataset(input_dir: str, output_dir: str = None, 
-                       exclude_classes: str = "scratch,ground_truth_1,ground_truth_2",
+                       exclude_classes: str = "ground_truth_1,ground_truth_2",
                        ratios: str = None,
+                       counts: str = None,
                        config_path: str = None,
                        labeling_mode: str = "preserve",
                        new_class_value: int = 113,
@@ -758,6 +780,7 @@ def cli_augment_dataset(input_dir: str, output_dir: str = None,
         output_dir: Output directory (defaults to same as input_dir)
         exclude_classes: Comma-separated list of classes to exclude
         ratios: Comma-separated class:ratio pairs (e.g., "good:0.3,oil:0.5,stain:0.8")
+        counts: Comma-separated class:count pairs (e.g., "good:50,oil:100") - 우선순위 높음
         config_path: Path to configuration file
         labeling_mode: "preserve" (기존 라벨 유지) or "new_class" (새 클래스 생성)
         new_class_value: 새 클래스 생성 시 사용할 픽셀값 (default: 113)
@@ -767,8 +790,11 @@ def cli_augment_dataset(input_dir: str, output_dir: str = None,
         basic_aug_ratio: 기본 증강 이미지 비율 0.0~1.0 (default: 0.2 = 20%)
     
     Examples:
-        # 기존 방식 (라벨 유지)
+        # 기존 방식 (라벨 유지) - ratio로
         python -m fire augmentation.py cli_augment_dataset --input_dir="/path/to/data" --ratios="good:0.3"
+        
+        # count로 정확한 개수 지정
+        python -m fire augmentation.py cli_augment_dataset --input_dir="/path/to/data" --counts="good:50,oil:100"
         
         # 다단계 증강 - 기본 증강 10%로 낮추기
         python -m fire augmentation.py cli_augment_dataset \
@@ -791,6 +817,16 @@ def cli_augment_dataset(input_dir: str, output_dir: str = None,
                     ratio_dict[class_name.strip()] = float(ratio_val.strip())
                 except ValueError:
                     logger.warning(f"Invalid ratio format: {ratio_pair}")
+    
+    count_dict = {}
+    if counts:
+        for count_pair in counts.split(','):
+            if ':' in count_pair:
+                class_name, count_val = count_pair.split(':', 1)
+                try:
+                    count_dict[class_name.strip()] = int(count_val.strip())
+                except ValueError:
+                    logger.warning(f"Invalid count format: {count_pair}")
     
     output_dir = output_dir or input_dir
     
@@ -826,11 +862,12 @@ def cli_augment_dataset(input_dir: str, output_dir: str = None,
     if multi_stage:
         augmentor.multi_stage_augmentation(input_dir=input_dir, output_dir=output_dir)
     else:
-        logger.info(f"Ratios: {ratio_dict} | Exclude: {exclude_list}")
+        logger.info(f"Ratios: {ratio_dict} | Counts: {count_dict} | Exclude: {exclude_list}")
         augmentor.augment_dataset_with_ratio(
             input_dir=input_dir,
             output_dir=output_dir,
             augment_ratios=ratio_dict,
+            augment_counts=count_dict,
             exclude_classes=exclude_list
         )
     

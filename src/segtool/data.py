@@ -31,10 +31,7 @@ def default_paths(base: Path, include_augmented: bool = True) -> DatasetPaths:
         "good": None,  # good은 마스크 없음: 제거해도 무방
     }
 
-    # 증강 데이터 추가 (새 스크래치 클래스 포함)
-    if include_augmented and (base / "aug").exists():
-        img_dirs["scratch_synthetic"] = base / "aug"  
-        mask_dirs["scratch_synthetic"] = base / "aug_mask"
+    # 증강 데이터는 각 클래스별로 별도 처리하므로 여기서는 제거
 
     return DatasetPaths(img_dirs=img_dirs, mask_dirs=mask_dirs)
 
@@ -150,10 +147,13 @@ def find_mask(img_path: Path, defect_type: str, mask_dirs: Dict[str, Path]) -> O
 
     fname = img_path.name
 
-    # 새 스크래치 클래스 처리
-    if defect_type == "scratch_synthetic":
+    # 증강 데이터인지 확인 (aug_로 시작하는 경우)
+    if fname.startswith("aug_"):
+        # 증강 데이터의 마스크는 aug_mask 폴더에서 찾기
+        base_dir = img_path.parent.parent  # aug 폴더의 부모 디렉토리
+        aug_mask_dir = base_dir / "aug_mask"
         mask_fname = os.path.splitext(fname)[0] + ".png"
-        mask_path = mask_dirs[defect_type] / mask_fname
+        mask_path = aug_mask_dir / mask_fname
         return mask_path if mask_path.exists() else None
 
     # 원본 데이터 처리
@@ -181,9 +181,9 @@ class DefectSegDataset(Dataset):  # ✅ 수정됨
         self.base_path = base_path
         self.img_h, self.img_w = img_size_hw
 
-        # 증강 데이터 포함 (디버깅 완료)
-        use_augmented = include_augmented
-        paths = default_paths(base_path, use_augmented)
+        # 기본 경로 설정 (증강 데이터 제외)
+        paths = default_paths(base_path, False)
+        use_augmented = include_augmented and (split == "train")
         self.img_dirs = paths.img_dirs
         self.mask_dirs = paths.mask_dirs
 
@@ -193,23 +193,35 @@ class DefectSegDataset(Dataset):  # ✅ 수정됨
         self.samples: List[Tuple[Path, str]] = []
 
         for cls, folder in self.img_dirs.items():
-            imgs = _list_images(folder)
-            rng.shuffle(imgs)  # ✅ 수정됨
-
-            n_total = len(imgs)  # ✅ 수정됨
+            # 원본 이미지만 수집
+            original_imgs = _list_images(folder)
+            
+            # 증강 데이터 수집 (모든 split에서 분할용으로 사용)
+            aug_imgs = []
+            if use_augmented and (base_path / "aug").exists():
+                aug_dir = base_path / "aug"
+                aug_imgs = [p for p in _list_images(aug_dir) if p.name.startswith(f"aug_{cls}_")]
+            
+            # 원본만으로 train/val/test 분할
+            rng.shuffle(original_imgs)
+            n_total = len(original_imgs)
             n_train = int(n_total * train_ratio)
             n_test = int(n_total * test_ratio)
 
-            train_imgs = imgs[:n_train]
-            test_imgs  = imgs[n_train: n_train + n_test]
-            val_imgs   = imgs[n_train + n_test:]
+            train_original = original_imgs[:n_train]
+            test_original = original_imgs[n_train: n_train + n_test]
+            val_original = original_imgs[n_train + n_test:]
 
+            # split에 따라 선택
             if split == "train":
-                chosen = train_imgs
+                # train에서는 원본 + 증강 데이터 모두 포함
+                chosen = train_original + aug_imgs
             elif split == "test":
-                chosen = test_imgs
-            else:
-                chosen = val_imgs
+                # test에서는 원본만
+                chosen = test_original
+            else:  # val
+                # val에서는 원본만
+                chosen = val_original
 
             self.samples.extend([(p, cls) for p in chosen])
 
