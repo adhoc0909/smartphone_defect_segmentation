@@ -20,33 +20,6 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-class NanoAugmentor:
-    def __init__(self, config: Dict):
-        self.config = config
-        pass
-
-    def load_config(self, config_path: str) -> Dict:
-        """Augentation settings load from json file."""
-        if os.path.exists(config_path):
-            with open(config_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        else:
-            return self.get_default_config()
-        
-    def save_config(self, config_path: str):
-        """Save current configuration to a json file."""
-        with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(self.config, f, indent=2, ensure_ascii=False)
-        # logger.info(f"Configuration saved to {config_path}") 
-
-
-
-
-
-
-
-
-
 class CVAugmentor:
     def __init__(self, config: Optional[Dict] = None):
         self.config = config or self.get_default_config()
