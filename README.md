@@ -388,6 +388,10 @@ python gputest.py
 
 ---
 
+## 🖥️ 시연 영상
+
+![mobile_defect_sctatch_demo](https://github.com/user-attachments/assets/530f5538-de5a-4224-99f5-66fb028668f3)
+
 ## 📝 참고 자료
 
 - **U-Net**: [Ronneberger et al., 2015](https://arxiv.org/abs/1505.04597)
