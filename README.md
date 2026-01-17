@@ -64,8 +64,7 @@ https://github.com/user-attachments/assets/12345678-1234-1234-1234-123456789abc/
 또는 저장소에 assets 폴더를 만들고 비디오 파일을 넣은 후:
 https://github.com/username/repository/assets/demo.mp4
 -->
-
-**⬇️ 여기에 비디오 파일을 드래그 앤 드롭하세요 ⬇️**
+![mobile_defect_sctatch_demo](https://github.com/user-attachments/assets/530f5538-de5a-4224-99f5-66fb028668f3)
 
 
 
@@ -388,9 +387,6 @@ python gputest.py
 
 ---
 
-## 🖥️ 시연 영상
-
-![mobile_defect_sctatch_demo](https://github.com/user-attachments/assets/530f5538-de5a-4224-99f5-66fb028668f3)
 
 ## 📝 참고 자료
 
